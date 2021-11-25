@@ -8,11 +8,6 @@ import './randomChar.scss';
 import mjolnir from '../../resources/img/mjolnir.png';
 
 class RandomChar extends Component {
-    constructor(props) {
-        super(props);
-        this.updateChar();
-    }
-
     state = {
         char: {},
         loading: true,
@@ -41,6 +36,10 @@ class RandomChar extends Component {
             .getCharacters(id)
             .then(this.onCharLoaded)
             .catch(this.onError)
+    }
+
+    componentDidMount() {
+        this.updateChar();
     }
 
     render() {
@@ -77,27 +76,19 @@ class RandomChar extends Component {
 
 const View = ({char}) => {
     const {name, descr, thumbnail, homepage, wiki} = char;
+    let classNames = 'randomchar__img';
 
-    let visibleDescr = descr;
-
-        if (descr === "") {
-            visibleDescr = "Oops, nothing was found:(";
-        } else {
-            if (visibleDescr !== undefined) {
-                if (visibleDescr.length > 180) {
-                    visibleDescr = visibleDescr.substr(0, 180) + '...';
-                    console.log(visibleDescr);
-                }
-            }
-        }
+    if (thumbnail === "http://i.annihil.us/u/prod/marvel/i/mg/b/40/image_not_available.jpg") {
+        classNames+= " notFound";
+    } 
 
     return (
         <div className="randomchar__block">
-            <img src={thumbnail} alt="Random character" className="randomchar__img"/>
+            <img src={thumbnail} alt="Random character" className={classNames}/>
             <div className="randomchar__info">
-                <p className="randomchar__name">{name}</p>
+                <p className="randomchar__name">{name.length > 20 ? char.name.substr(0, 22) + '...' : char.name}</p>
                 <p className="randomchar__descr">
-                    {visibleDescr}
+                    {descr ? `${descr.slice(0, 180)}...` : 'Nothing was found about this character.'}
                 </p>
                 <div className="randomchar__btns">
                     <a href={homepage} className="button button__main">

@@ -1,78 +1,47 @@
 import './charList.scss';
-import { Component } from 'react';
+import {useState, useEffect, useRef} from 'react';
 import PropTypes from "prop-types";
 
-import MarvelService from '../services/MarvelService';
+import useMarvelService from '../../services/MarvelService';
 import ErrorMessage from '../errorMessage/errorMessage';
 import Spinner from "../spinner/Spinner";
 
-export default class CharList extends Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            data: [],
-            loading: true,
-            error: false,
-            fullArr: false,
-            newItemsLoading: false,
-            key: 0
-        }
+const CharList = (props) => {
+    const [data, setData] = useState([]);
+    const [fullArr, setFullarr] = useState(false);
+    const [newItemsLoading, setNewItemsLoading] = useState(false);
+    const [key, setKey] = useState(0);    
+
+
+    const {loading, error, getAllCharacters} = useMarvelService();
+
+    const onCharsLoaded = (char) => {
+        setData(char);
     }
 
-    MarvelService = new MarvelService();
-
-    onCharsLoaded = (char) => {
-        this.setState({
-            data: char,
-            loading: false
-        });
-    }
-
-    onError = () => {
-        this.setState({
-            loading: false,
-            error: true
-        })
-    }
-
-    onCharLoading = () => {
-        this.setState({
-            loading: true,
-            newItemsLoading: true
-        })
+    const onCharLoading = (initial) => {
+        initial ? setNewItemsLoading(false) : setNewItemsLoading(true);
     }
     
-    componentDidMount() {
-        const {key} = this.state;
-        const oldKey = key;
-        const newKey = oldKey + 9;
+    useEffect((key) => {
+        setKey(key => key + 9);
 
-        this.setState({
-            key: newKey
-        })
+        getAllCharacters(key)
+            .then(onCharsLoaded)
+    }, [])
 
-        this.MarvelService
-            .getAllCharacters(key)
-            .then(this.onCharsLoaded)
-            .catch(this.onError);
+
+    const itemRefs = useRef([]);
+
+    const onFocusItem = (id) => {
+        itemRefs.current.forEach(item => item.classList.remove("char__item_selected"));
+        itemRefs.current[id].classList.add("char__item_selected");
+        itemRefs.current[id].focus();
     }
 
-    itemRefs = [];
-
-    setRef = (ref) => {
-        this.itemRefs.push(ref);
-    }
-
-    onFocusItem = (id) => {
-        this.itemRefs.forEach(item => item.classList.remove("char__item_selected"));
-        this.itemRefs[id].classList.add("char__item_selected");
-        this.itemRefs[id].focus();
-    }
-
-    onRenderItems = (arr) => {
+    const onRenderItems = (arr) => {
         const cards = arr.map((item, i) => {
-            
-
+        
             let classNames = "char__img";
             if (item.thumbnail === "http://i.annihil.us/u/prod/marvel/i/mg/b/40/image_not_available.jpg") {
                 classNames+= " notFound";
@@ -82,16 +51,16 @@ export default class CharList extends Component {
                 <li 
                     className="char__item"
                     tabIndex={0}
-                    ref={this.setRef}
+                    ref={el => itemRefs.current[i] = el}
                     key={item.id}
                     onClick={() => {
-                        this.props.onCharSelected(item.id);
-                        this.onFocusItem(i);
+                        props.onCharSelected(item.id);
+                        onFocusItem(i);
                     }}
                     onKeyPress={(e) => {
                         if (e.key === ' ' || e.key === 'Enter') {
-                            this.props.onCharSelected(item.id);
-                            this.onFocusItem(i);
+                            props.onCharSelected(item.id);
+                            onFocusItem(i);
                         }
                     }}>
                         <img src={item.thumbnail} alt={item.name} className={classNames}/>
@@ -107,69 +76,48 @@ export default class CharList extends Component {
         )
     }
 
-    onAddChar = (char) => {
+    const onAddChar = (char) => {
         if (char.length === 0 || char.length < 9) {
-            this.setState({
-                fullArr: true
-            })
+            setFullarr(true);
         }
-        const {data} = this.state;
-        const newObj = [...char];
-        const newArr = [...data, ...newObj];
 
-        this.setState({
-            data: newArr,
-            loading: false,
-            newItemsLoading: false
-        })
+        setData([...data, ...char]);
+        setNewItemsLoading(false);
     }
 
-    onLoadMore = () => {
-        const {key} = this.state;
-        const oldKey = key;
-        const newKey = oldKey + 9;
-
-        this.setState({
-            key: newKey
-        })
+    const onLoadMore = (initial) => {
+        setNewItemsLoading(true);
+        setKey(key => key + 9);
         
-        this.onCharLoading();
+        onCharLoading(initial);
 
-        this.MarvelService
-        .getAllCharacters(key)
-        .then(this.onAddChar)
-        .catch(this.onError);
+        getAllCharacters(key)
+            .then(onAddChar)
     }
 
-    render() {
-        const {data, loading, error, fullArr, newItemsLoading} = this.state;
-        const items = this.onRenderItems(data);
-        const button = (
-            <>
-                <button 
-                    className="button button__main button__long"
-                    style={{"display": fullArr ? "none" : "block"}}
-                    onClick={this.onLoadMore}>
-                        <div className="inner">load more</div>
-                </button>
-            </>
-        )
+    const items = onRenderItems(data);
 
-        const errorMessage = error ? <ErrorMessage/> : null;
-        const spinner = loading ? <Spinner/> : null;
-        const content = !(loading || error) ? items : null;
+    const errorMessage = error ? <ErrorMessage/> : null;
+    const spinner = loading && !newItemsLoading ? <Spinner/> : null;
 
-        return (
-            <div className="char__list">
-                {errorMessage}
-                {spinner}
-                {content}
-                {newItemsLoading ? <Spinner/> : button}
-            </div>
-        )
-    }
+    return (
+        <div className="char__list">
+            {errorMessage}
+            {spinner}
+            {items}
+            <button 
+                className="button button__main button__long"
+                disabled={newItemsLoading}
+                style={{"display": fullArr ? "none" : "block"}}
+                onClick={() => onLoadMore(false)}>
+                    <div className="inner">load more</div>
+            </button>
+        </div>
+    )
 }
 
 CharList.propTypes = {
     onCharSelected: PropTypes.func.isRequired
 }
+
+export default CharList;
